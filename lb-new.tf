@@ -26,6 +26,7 @@ data "azurerm_network_interface" "nic" {
 locals {
   get_data = csvdecode(file("../parameters.csv"))
   # Define data for naming standards
+  vm_names_list = var.vm_names != [] ? var.vm_names : split(",", var.vm_names[0])
   naming = {
     bu                = lower(split("-", data.azurerm_subscription.current.display_name)[1])  # Read app/bu from the subscription data block
     environment       = lower(split("-", data.azurerm_subscription.current.display_name)[2])  # Read environment from subscription data block
@@ -113,7 +114,7 @@ resource "azurerm_network_interface_backend_address_pool_association" "lb_backen
     for idx, pool in azurerm_lb_backend_address_pool.internal_lb_bepool : idx => {
       pool_id = pool.id
       nic_id  = data.azurerm_network_interface.nic[idx].id
-      vm_name = var.vm_names[idx]
+      vm_name = local.vm_names_list[idx]
     }
   }
 
@@ -121,6 +122,7 @@ resource "azurerm_network_interface_backend_address_pool_association" "lb_backen
   ip_configuration_name   = join("-", [each.value.vm_name, "nic1_config"])
   backend_address_pool_id = each.value.pool_id
 }
+
 
 # Load Balancer Probe
 resource "azurerm_lb_probe" "tcp_probe" {
