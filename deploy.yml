@@ -59,9 +59,9 @@ on:
         required: false
         description: Private IP address for Load Balancer frontend configuration.
       vm_names:
-        type: string
+        description: "List of VM names for NIC IP configuration"
         required: false
-        description: Comma-separated list of VM names (e.g., vm1,vm2,vm3)
+        default: '["VM1", "VM2", "VM3"]'
 jobs:
   resource_group:
     if: (github.event.inputs.requesttype == 'Create (with New RG)')
