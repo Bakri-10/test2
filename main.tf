@@ -18,11 +18,11 @@ data "azurerm_subscription" "current" {}  # Read the current subscription info
 data "azurerm_client_config" "clientconfig" {}  # Read the current client config
 
 data "azurerm_network_interface" "nic" {
-  for_each = { for vm in var.vm_names : vm => vm }
-  name     = join("-", [each.value, "nic-01"])
-  resource_group_name = join("-", [local.naming.bu,local.naming.environment,local.env_location.locations_abbreviation,local.purpose,"rg"])
-}
+  for_each = toset(var.vm_names)
 
+  name                = "${each.value}-nic-01"  # Ensure naming matches your NICs
+  resource_group_name = join("-", [local.naming.bu, local.naming.environment, local.env_location.locations_abbreviation, local.purpose, "rg"])
+}
 
 locals {
   get_data = csvdecode(file("../parameters.csv"))
@@ -112,14 +112,14 @@ resource "azurerm_network_interface_backend_address_pool_association" "lb_backen
   for_each = {
     for nic_key, nic in data.azurerm_network_interface.nic :
     nic_key => {
-      nic_id               = nic.id
-      ip_configuration_name = "ipconfig1"
+      nic_id                = nic.id
+      ip_configuration_name = "ipconfig1"  
     }
   }
 
   network_interface_id    = each.value.nic_id
   ip_configuration_name   = each.value.ip_configuration_name
-  backend_address_pool_id = azurerm_lb_backend_address_pool.internal_lb_bepool["0"].id  # Adjust the key if needed
+  backend_address_pool_id = azurerm_lb_backend_address_pool.internal_lb_bepool[0].id  # Use correct key
 }
 # Load Balancer Probe
 resource "azurerm_lb_probe" "tcp_probe" {
