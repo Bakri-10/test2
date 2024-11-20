@@ -110,17 +110,18 @@ resource "azurerm_lb_backend_address_pool" "internal_lb_bepool" {
 
 resource "azurerm_network_interface_backend_address_pool_association" "lb_backend_association" {
   for_each = {
-    for nic_key, nic in data.azurerm_network_interface.nic :
-    nic_key => {
-      nic_id                = nic.id
-      ip_configuration_name = "ipconfig1"  
+    for vm_name in var.vm_names :
+    vm_name => {
+      nic_id                = data.azurerm_network_interface.nic[vm_name].id
+      ip_configuration_name = join("-", [vm_name, "nic_config"])  
     }
   }
 
   network_interface_id    = each.value.nic_id
   ip_configuration_name   = each.value.ip_configuration_name
-  backend_address_pool_id = azurerm_lb_backend_address_pool.internal_lb_bepool[0].id  # Use correct key
+  backend_address_pool_id = azurerm_lb_backend_address_pool.internal_lb_bepool["1"].id  # Use the correct key
 }
+
 # Load Balancer Probe
 resource "azurerm_lb_probe" "tcp_probe" {
   for_each            = azurerm_lb.internal_lb
