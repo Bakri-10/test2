@@ -1,84 +1,147 @@
-variable "environment_map" {
-  type = map
-  description = "environment"
-  default = {
-    "dev"  = "dev"
-    "uat" = "uat"
-    "fof" = "fof"
-    "prod" = "prod"
-    "qa" = "qa"
-  }
-}
-
-variable "location_map" {
-  type = map
-  description = "location_map"
-    default = {
-    "eastus2"  = "eus2"
-    "centralus" = "cus"
-    "uksouth" = "uks"
-    "ukwest" = "ukw"
-    "us"= "eus2"
-  
-  }
-
-}
-
-variable "RGname" {
-  description = "Optional existing Resource Group name. If not provided, it will be computed."
+# Azure region where resources will be created
+variable "location" {
+  description = "Azure region where resources will be created"
   type        = string
-  default     = ""
 }
 
+# List of VM names
+variable "vm_names" {
+  description = "List of VM names"
+  type        = list(string)
+}
+
+# Resource Group name
+variable "resource_group_name" {
+  description = "Resource Group name"
+  type        = string
+}
+
+# Virtual Network name
+variable "vnet_name" {
+  description = "Virtual Network name"
+  type        = string
+}
+
+# Resource group of the Virtual Network
+variable "vnet_resource_group" {
+  description = "Resource group of the Virtual Network"
+  type        = string
+}
+
+# Subnet name
+variable "subnet_name" {
+  description = "Subnet name"
+  type        = string
+}
+
+# Private IP address for the Load Balancer frontend
+variable "private_ip_address" {
+  description = "Private IP address for the Load Balancer frontend"
+  type        = string
+}
+
+# SKU name for the Load Balancer
 variable "sku_name" {
-  description = "SKU name for the Load Balancer."
+  description = "SKU name for the Load Balancer"
   type        = string
   default     = "Standard"
-
-  validation {
-    condition     = contains(["Basic", "Standard"], var.sku_name)
-    error_message = "sku_name must be either 'Basic' or 'Standard'."
-  }
 }
 
-variable "location" {
-  type = string
-  description = "location"
-  default = "eastus2"
-}
-
-
-variable "purpose_rg" {
-  type        = string
-  default     = "default"
-  description = "(Required) The purpose segment of the Resource Group name. Should not exceed 5 characters."
-  validation {
-    condition     = strcontains(var.purpose_rg, "-") ? length(var.purpose_rg) <= 80 : length(var.purpose_rg) <= 5
-    error_message = "(Required) Purpose segment cannot exceed 5 characters. Name cannot exceed 80."
-  }  
- }
-
-# Define the name for the subnet
-variable "subnetname" {
-  type = string
-  default = "5874-dev-eus2-aks-snet-02"
-#  sensitive = true
-  
-}
-
-variable "private_ip_address" {
-  description = "The private IP address to assign to the load balancer frontend configuration."
-  type        = string
-  default     = "10.82.58.234"  # You can change the default value as needed
-}
-
-variable "purpose" {
-  description = "Purpose of the resources, used in naming conventions."
+# Load Balancer name
+variable "lb_name" {
+  description = "Load Balancer name"
   type        = string
 }
 
-variable "vm_names" {
-  type        = list(string)
-  description = "List of VM names for NIC IP configuration."
-  default     = ["AZUSE-ACRIDV05"] 
+# Frontend IP configuration name
+variable "frontend_ip_config_name" {
+  description = "Frontend IP configuration name"
+  type        = string
+}
+
+# Backend pool name
+variable "backend_pool_name" {
+  description = "Backend pool name"
+  type        = string
+}
+
+# Probe name
+variable "probe_name" {
+  description = "Probe name"
+  type        = string
+}
+
+# Probe port
+variable "probe_port" {
+  description = "Probe port"
+  type        = number
+  default     = 20000
+}
+
+# Probe interval in seconds
+variable "probe_interval" {
+  description = "Probe interval in seconds"
+  type        = number
+  default     = 5
+}
+
+# Number of probes
+variable "number_of_probes" {
+  description = "Number of probes"
+  type        = number
+  default     = 5
+}
+
+# TCP rule name
+variable "tcp_rule_name" {
+  description = "TCP rule name"
+  type        = string
+}
+
+# TCP frontend port
+variable "tcp_frontend_port" {
+  description = "TCP frontend port"
+  type        = number
+  default     = 20000
+}
+
+# TCP backend port
+variable "tcp_backend_port" {
+  description = "TCP backend port"
+  type        = number
+  default     = 20000
+}
+
+# TCP idle timeout in minutes
+variable "tcp_idle_timeout" {
+  description = "TCP idle timeout in minutes"
+  type        = number
+  default     = 5
+}
+
+# HTTPS rule name
+variable "https_rule_name" {
+  description = "HTTPS rule name"
+  type        = string
+}
+
+# HTTPS frontend port
+variable "https_frontend_port" {
+  description = "HTTPS frontend port"
+  type        = number
+  default     = 443
+}
+
+# HTTPS backend port
+variable "https_backend_port" {
+  description = "HTTPS backend port"
+  type        = number
+  default     = 443
+}
+
+# HTTPS idle timeout in minutes
+variable "https_idle_timeout" {
+  description = "HTTPS idle timeout in minutes"
+  type        = number
+  default     = 4
 }
