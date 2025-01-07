@@ -1,41 +1,36 @@
-Windows-VMCreate
-########
-name: 'zWindows VM (Call)'
-run-name: '${{github.actor}} - Creating App Gateway'
+name: 'Create MS SQL Server'
+run-name: ${{ github.actor }}
 on:
   workflow_call:
     inputs:
       requestType:
+        type: choice
+        required: false
+      name:
         type: string
         required: false
-      environment:
+      subscription:
         type: string
         required: true
       location:
         type: string
-        required: false
-      vmsize:
+        required: true
+      environment:
         type: string
-        required: false
+        required: true
       purpose:
         type: string
-        required: false
-      purposeRG:
+        required: true
+      subnetname:
+        type: string
+        required: true
+      dbcollation:
         type: string
         required: false
-      projectou:
+      skuname:
         type: string
         required: false
-      subnetNameWVM:
-        type: string
-        required: false
-      subnetNameWVM2:
-        type: string
-        required: false
-      diskSizeGB:
-        type: string
-        required: false
-      diskStorageAccountType:
+      zoneredundancy:
         type: string
         required: false
     secrets:
@@ -47,340 +42,93 @@ on:
         required: true
       ARM_TENANT_ID:
         required: true
-      BACKEND_STORAGE_ACCOUNT:
-          required: true
-      BACKEND_RESOURCE_GROUP:
-          required: true  
+
 env:
   permissions:
-  contents: read
+    contents: read
+
 jobs:
-  wvm-create:
-    name: 'Create Windows VM'
+  mssql-server-reusable-workflow:
+    name: 'Creating - MSSQL Server'
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
     env:
-      ARM_CLIENT_ID:        ${{secrets.ARM_CLIENT_ID}}
-      ARM_CLIENT_SECRET:    ${{secrets.ARM_CLIENT_SECRET}}
-      ARM_TENANT_ID:        ${{secrets.ARM_TENANT_ID}}
-      ARM_SUBSCRIPTION_ID:  ${{secrets.ARM_SUBSCRIPTION_ID}}
-      ROOT_PATH:            'Azure/windows-vm'
-    runs-on: 
-      group: aks-runners
-    environment: ${{inputs.environment}}
+      ARM_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}
+      ARM_CLIENT_SECRET: ${{ secrets.ARM_CLIENT_SECRET }}
+      ARM_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.ARM_SUBSCRIPTION_ID }}
+      ROOT_PATH: 'Azure/${{ inputs.name }}'
     defaults:
       run:
         shell: bash
-        working-directory: 'Azure/windows-vm'
     steps:
-      - name: 'Checkout - Windows VM (${{ inputs.purpose }})'
+      - name: Checkout
         uses: actions/checkout@v3
-      - name: 'Setup Node.js'
-        uses: actions/setup-node@v2
-        with:
-          node-version: '20'  # Specify the required Node.js version  
-      - name: 'Setup Terraform'
-        uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: latest      
-      - id: envvars
-        name: Set environment variables based on deployment environment
-        run: |
-            if [ "${{ inputs.environment }}" = "prod" ]; then
-              echo "BACKEND_STORAGE_ACCOUNT=${{ secrets.BACKEND_STORAGE_ACCOUNT }}" >> "$GITHUB_ENV"
-              echo "BACKEND_RESOURCE_GROUP=${{ secrets.BACKEND_RESOURCE_GROUP }}" >> "$GITHUB_ENV"
-            elif [ "${{ inputs.environment }}" = "uat" ]; then
-              echo "BACKEND_STORAGE_ACCOUNT=${{ secrets.BACKEND_STORAGE_ACCOUNT }}" >> "$GITHUB_ENV"
-              echo "BACKEND_RESOURCE_GROUP=${{ secrets.BACKEND_RESOURCE_GROUP }}" >> "$GITHUB_ENV"
-            else
-              echo "BACKEND_STORAGE_ACCOUNT=${{ secrets.BACKEND_STORAGE_ACCOUNT }}" >> "$GITHUB_ENV"
-              echo "BACKEND_RESOURCE_GROUP=${{ secrets.BACKEND_RESOURCE_GROUP }}" >> "$GITHUB_ENV"
-            fi
-      - name: Debug Environment Variables
-        run: |
-          echo "BACKEND_STORAGE_ACCOUNT=$BACKEND_STORAGE_ACCOUNT"
-          echo "BACKEND_RESOURCE_GROUP=$BACKEND_RESOURCE_GROUP" 
-      - name: 'Terraform Initialize - Windows VM (${{ inputs.purpose }})'
-        run: terraform init -backend-config="resource_group_name=$BACKEND_RESOURCE_GROUP" -backend-config="storage_account_name=$BACKEND_STORAGE_ACCOUNT" -backend-config="container_name=terraform-state" -backend-config="key=${{ inputs.environment }}-${{ inputs.purpose }}-terraform.tfstate" -input=false
-        #uses: hashicorp/terraform-github-actions@master
-        # with:
-        #   tf_actions_version:     latest
-        #   tf_actions_subcommand:  'init'
-        #   tf_actions_working_dir: ${{env.ROOT_PATH}}
-        #   tf_actions_comment:     true
-        env:
-          TF_VAR_request_type:              '${{inputs.requestType}}'
-          TF_VAR_location:                  '${{inputs.location}}'
-          TF_VAR_vm_size:                   '${{inputs.vmsize}}'
-          TF_VAR_purpose:                   '${{inputs.purpose}}'
-          TF_VAR_purpose_rg:                '${{inputs.purposeRG}}'
-          TF_VAR_project_ou:                '${{inputs.projectou}}'
-          TF_VAR_subnetname_wvm:            '${{inputs.subnetNameWVM}}'
-          TF_VAR_subnetname_wvm2:           '${{inputs.subnetNameWVM2}}'
-          TF_VAR_disk_size_gb:              '${{inputs.diskSizeGB}}'
-          TF_VAR_disk_storage_account_type: '${{inputs.diskStorageAccountType}}'
-          TF_VAR_BACKEND_STORAGE_ACCOUNT:   '${{secrets.BACKEND_STORAGE_ACCOUNT}}'
-          TF_VAR_BACKEND_RESOURCE_GROUP:    '${{secrets.BACKEND_RESOURCE_GROUP}}'
-      - name: 'Terraform Plan - Wiindows VM (${{ inputs.purpose }})'
-        if: ${{ inputs.requestType == 'Create (with New RG)' || inputs.requestType == 'Create (with Existing RG)' }}
+      - name: Terraform Initialize
+        if: ${{ inputs.requestType != 'Remove (Destroy SQL)' }}
         uses: hashicorp/terraform-github-actions@master
         with:
-          tf_actions_version:     latest
-          tf_actions_subcommand:  'plan'
-          tf_actions_working_dir: ${{env.ROOT_PATH}}
-          tf_actions_comment:     true
+          tf_actions_version: latest
+          tf_actions_subcommand: 'init'
+          tf_actions_working_dir: ${{ env.ROOT_PATH }}
+          tf_actions_comment: true
         env:
-          TF_VAR_request_type:              '${{inputs.requestType}}'
-          TF_VAR_location:                  '${{inputs.location}}'
-          TF_VAR_vm_size:                   '${{inputs.vmsize}}'
-          TF_VAR_purpose:                   '${{inputs.purpose}}'
-          TF_VAR_purpose_rg:                '${{inputs.purposeRG}}'
-          TF_VAR_project_ou:                '${{inputs.projectou}}'
-          TF_VAR_subnetname_wvm:            '${{inputs.subnetNameWVM}}'
-          TF_VAR_subnetname_wvm2:           '${{inputs.subnetNameWVM2}}'
-          TF_VAR_disk_size_gb:              '${{inputs.diskSizeGB}}'
-          TF_VAR_disk_storage_account_type: '${{inputs.diskStorageAccountType}}'
-          TF_VAR_BACKEND_STORAGE_ACCOUNT:   '${{secrets.BACKEND_STORAGE_ACCOUNT}}'
-          TF_VAR_BACKEND_RESOURCE_GROUP:    '${{secrets.BACKEND_RESOURCE_GROUP}}'
-      - name: 'Apply - Windows VM (${{ inputs.purpose }})'
-        if: ${{ inputs.requestType == 'Create (with New RG)' || inputs.requestType == 'Create (with Existing RG)' }}
+          TF_VAR_name: '${{ inputs.name }}'
+          TF_VAR_location: '${{ inputs.location }}'
+          TF_VAR_environment: '${{ inputs.environment }}'
+          TF_VAR_purpose: '${{ inputs.purpose }}'
+          TF_VAR_subnetname: '${{ inputs.subnetname }}'
+          TF_VAR_dbcollation: '${{ inputs.dbcollation }}'
+          TF_VAR_skuname: '${{ inputs.skuname }}'
+          TF_VAR_zoneredundancy: '${{ inputs.zoneredundancy }}'
+      - name: Terraform Plan
+        if: ${{ inputs.requestType != 'Remove (Destroy SQL)' }}
         uses: hashicorp/terraform-github-actions@master
         with:
-          tf_actions_version:     latest
-          tf_actions_subcommand:  'apply'
-          tf_actions_working_dir: ${{env.ROOT_PATH}}
-          tf_actions_comment:     true
+          tf_actions_version: latest
+          tf_actions_subcommand: 'plan'
+          tf_actions_working_dir: ${{ env.ROOT_PATH }}
+          tf_actions_comment: true
         env:
-          TF_VAR_request_type:              '${{inputs.requestType}}'
-          TF_VAR_location:                  '${{inputs.location}}'
-          TF_VAR_vm_size:                   '${{inputs.vmsize}}'
-          TF_VAR_purpose:                   '${{inputs.purpose}}'
-          TF_VAR_purpose_rg:                '${{inputs.purposeRG}}'
-          TF_VAR_project_ou:                '${{inputs.projectou}}'
-          TF_VAR_subnetname_wvm:            '${{inputs.subnetNameWVM}}'
-          TF_VAR_subnetname_wvm2:           '${{inputs.subnetNameWVM2}}'
-          TF_VAR_disk_size_gb:              '${{inputs.diskSizeGB}}'
-          TF_VAR_disk_storage_account_type: '${{inputs.diskStorageAccountType}}'
-          TF_VAR_BACKEND_STORAGE_ACCOUNT:   '${{secrets.BACKEND_STORAGE_ACCOUNT}}'
-          TF_VAR_BACKEND_RESOURCE_GROUP:    '${{secrets.BACKEND_RESOURCE_GROUP}}'
-      - name: 'Terraform Destroy - Windows VM (${{ inputs.purpose }})'
-        if: ${{ inputs.requestType == 'Remove (Destroy VM)' }}
+          TF_VAR_name: '${{ inputs.name }}'
+          TF_VAR_location: '${{ inputs.location }}'
+          TF_VAR_environment: '${{ inputs.environment }}'
+          TF_VAR_purpose: '${{ inputs.purpose }}'
+          TF_VAR_subnetname: '${{ inputs.subnetname }}'
+          TF_VAR_dbcollation: '${{ inputs.dbcollation }}'
+          TF_VAR_skuname: '${{ inputs.skuname }}'
+          TF_VAR_zoneredundancy: '${{ inputs.zoneredundancy }}'
+      - name: Terraform Apply
+        if: ${{ inputs.requestType != 'Remove (Destroy SQL)' }}
         uses: hashicorp/terraform-github-actions@master
         with:
-          tf_actions_version:     latest
-          tf_actions_subcommand:  'destroy'
-          tf_actions_working_dir: ${{env.ROOT_PATH}}
-          tf_actions_comment:     true
-          tf_actions_cli_options: '-auto-approve'
+          tf_actions_version: latest
+          tf_actions_subcommand: 'apply'
+          tf_actions_working_dir: ${{ env.ROOT_PATH }}
+          tf_actions_comment: true
         env:
-          TF_VAR_request_type:              '${{inputs.requestType}}'
-          TF_VAR_location:                  '${{inputs.location}}'
-          TF_VAR_vm_size:                   '${{inputs.vmsize}}'
-          TF_VAR_purpose:                   '${{inputs.purpose}}'
-          TF_VAR_purpose_rg:                '${{inputs.purposeRG}}'
-          TF_VAR_project_ou:                '${{inputs.projectou}}'
-          TF_VAR_subnetname_wvm:            '${{inputs.subnetNameWVM}}'
-          TF_VAR_subnetname_wvm2:           '${{inputs.subnetNameWVM2}}'
-          TF_VAR_disk_size_gb:              '${{inputs.diskSizeGB}}'
-          TF_VAR_disk_storage_account_type: '${{inputs.diskStorageAccountType}}'
-          TF_VAR_BACKEND_STORAGE_ACCOUNT:   '${{secrets.BACKEND_STORAGE_ACCOUNT}}'
-          TF_VAR_BACKEND_RESOURCE_GROUP:    '${{secrets.BACKEND_RESOURCE_GROUP}}'
-
-
-Windows_VMDeploy
-##################
-name: '- Deploy Windows VM'
-run-name: 'Windows VM - ${{inputs.environment}} purpose: ${{inputs.purpose}} : ${{inputs.requesttype}}'
-on:
-  workflow_dispatch:
-    inputs:
-        requesttype:
-          type: choice
-          required: true
-          description: Request Type
-          options:
-              - Create (with New RG)
-              - Create (with Existing RG)
-              - Update (Data Disk)
-              - Update (OS Disk)
-              - Remove (Destroy VM)
-          default:
-              "Create (with New RG)"
-        environment:
-          type: choice
-          required: true
-          description: Environment
-          options:
-              - DEV
-              - UAT
-              - QA
-              - PROD
-        location:
-          type: choice
-          required: true
-          description: Deployment Location
-          options:
-              - Select the location
-              - eastus2
-              - uksouth
-              - centralus
-              - ukwest
-        vmsize:
-          type: string
-          required: true
-          default: "Standard_D2s_v3"
-          description: VM Size (SKU Designation)
-        purpose:
-          type: string
-          required: true
-          description: Role/Sequence for VM (RRRR/SSS). Hyphen designate an existing VM
-        purposeRG:
-          type: string
-          required: true
-          description: Resource Group Purpose.......... Hyphen designate an existing RG
-        projectou:
-            type: string
-            required: true
-            description: Ignored on Update............. Organizational Unit (OU) for Domain Join. 
-        subnetInfo:
-          type: string
-          required: true
-          description: JSON formatted string containing subnet details
-          default: '{"subnetNameWVM": "", "subnetNameWVM2": ""}'
-        diskSizeGB:
-            type: string
-            required: false
-            description: Disk Size in GB................. Data Disk on Create............. Update specifies Data or OS Disk. On Update use "Same" retain size.
-            default: "32"
-        diskStorageAccountType:
-          type: choice
-          required: false
-          description: Disk Storage Account Type....... Data Disk on Create............. Update specifies Data or OS Disk. Blank on Update to retain size.
-          options: 
-            - Standard_LRS
-            - StandardSSD_LRS
-            - StandardSSD_ZRS
-            - Premium_LRS
-            - Premium_ZRS
-            - " "
-jobs:
-      parse_subnet_info:
-        runs-on: ubuntu-latest
-        outputs:
-          subnetNameWVM: ${{ steps.parse.outputs.subnetNameWVM }}
-          subnetNameWVM2: ${{ steps.parse.outputs.subnetNameWVM2 }}
-        steps:
-          - name: Parse Subnet Information
-            id: parse
-            run: |
-              echo "subnetNameWVM=$(echo '${{ inputs.subnetInfo }}' | jq -r '.subnetNameWVM')" >> $GITHUB_ENV
-              echo "subnetNameWVM2=$(echo '${{ inputs.subnetInfo }}' | jq -r '.subnetNameWVM2')" >> $GITHUB_ENV
-              echo "::set-output name=subnetNameWVM::$(echo '${{ inputs.subnetInfo }}' | jq -r '.subnetNameWVM')"
-              echo "::set-output name=subnetNameWVM2::$(echo '${{ inputs.subnetInfo }}' | jq -r '.subnetNameWVM2')"
-      resource_group:
-        if: (github.event.inputs.requestType == 'Create (with New RG)')
-        needs: parse_subnet_info
-        name: 'Resource Group ${{inputs.purposeRG}}'
-        uses: ./.github/workflows/CreateResourceGroup.yml
-        secrets:
-          ARM_CLIENT_ID:        ${{secrets.AZURE_CLIENT_ID}}
-          ARM_CLIENT_SECRET:    ${{secrets.AZURE_CLIENT_SECRET}}
-          ARM_SUBSCRIPTION_ID:  ${{secrets.AZURE_SUBSCRIPTION_ID}}
-          ARM_TENANT_ID:        ${{secrets.AZURE_TENANT_ID}}
+          TF_VAR_name: '${{ inputs.name }}'
+          TF_VAR_location: '${{ inputs.location }}'
+          TF_VAR_environment: '${{ inputs.environment }}'
+          TF_VAR_purpose: '${{ inputs.purpose }}'
+          TF_VAR_subnetname: '${{ inputs.subnetname }}'
+          TF_VAR_dbcollation: '${{ inputs.dbcollation }}'
+          TF_VAR_skuname: '${{ inputs.skuname }}'
+          TF_VAR_zoneredundancy: '${{ inputs.zoneredundancy }}'
+      - name: Terraform Destroy
+        if: ${{ inputs.requestType == 'Remove (Destroy SQL)' }}
+        uses: hashicorp/terraform-github-actions@master
         with:
-          name:                 'resource-group'
-          subscription:         'SNow Input'
-          environment:          '${{inputs.environment}}' 
-          location:             '${{inputs.location}}' 
-          purpose:              '${{inputs.purposeRG}}'
-      windows_vm_new_rg:
-        if: (github.event.inputs.requestType == 'Create (with New RG)')
-        name: 'Windows VM ${{inputs.purpose}}'
-        uses: ./.github/workflows/WindowsVMCreate.yml
-        needs: [parse_subnet_info, resource_group]
-        secrets:
-          ARM_CLIENT_ID:            ${{secrets.AZURE_CLIENT_ID}}
-          ARM_CLIENT_SECRET:        ${{secrets.AZURE_CLIENT_SECRET}}
-          ARM_SUBSCRIPTION_ID:      ${{secrets.AZURE_SUBSCRIPTION_ID}}
-          ARM_TENANT_ID:            ${{secrets.AZURE_TENANT_ID}}
-          BACKEND_STORAGE_ACCOUNT:  ${{secrets.BACKEND_STORAGE_ACCOUNT}}
-          BACKEND_RESOURCE_GROUP:   ${{secrets.BACKEND_RESOURCE_GROUP}}
-        with:
-          requestType:                '${{inputs.requestType}}'
-          environment:                '${{inputs.environment}}'
-          location:                   '${{inputs.location}}'
-          vmsize:                     '${{inputs.vmsize}}'
-          purpose:                    '${{inputs.purpose}}'
-          purposeRG:                  '${{inputs.purposeRG}}'
-          projectou:                  '${{inputs.projectou}}'
-          subnetNameWVM:              '${{ needs.parse_subnet_info.outputs.subnetNameWVM }}'
-          subnetNameWVM2:             '${{ needs.parse_subnet_info.outputs.subnetNameWVM2 }}'
-          diskSizeGB:                 '${{inputs.diskSizeGB}}'
-          diskStorageAccountType:     '${{inputs.diskStorageAccountType}}'
-      windows_vm_existing_rg:
-          if: (github.event.inputs.requestType == 'Create (with Existing RG)')
-          name: 'Windows VM ${{inputs.purpose}}'
-          uses: ./.github/workflows/WindowsVMCreate.yml
-          needs: parse_subnet_info
-          secrets:
-            ARM_CLIENT_ID:           ${{secrets.AZURE_CLIENT_ID}}
-            ARM_CLIENT_SECRET:       ${{secrets.AZURE_CLIENT_SECRET}}
-            ARM_SUBSCRIPTION_ID:     ${{secrets.AZURE_SUBSCRIPTION_ID}}
-            ARM_TENANT_ID:           ${{secrets.AZURE_TENANT_ID}}
-            BACKEND_STORAGE_ACCOUNT: ${{secrets.BACKEND_STORAGE_ACCOUNT}}
-            BACKEND_RESOURCE_GROUP:  ${{secrets.BACKEND_RESOURCE_GROUP}}
-          with:
-            requestType:                '${{inputs.requestType}}'
-            environment:                '${{inputs.environment}}' 
-            location:                   '${{inputs.location}}'
-            vmsize:                     '${{inputs.vmsize}}'
-            purpose:                    '${{inputs.purpose}}'
-            purposeRG:                  '${{inputs.purposeRG}}'
-            projectou:                  '${{inputs.projectou}}'
-            subnetNameWVM:              '${{ needs.parse_subnet_info.outputs.subnetNameWVM }}'
-            subnetNameWVM2:             '${{ needs.parse_subnet_info.outputs.subnetNameWVM2 }}'
-            diskSizeGB:                 '${{inputs.diskSizeGB}}'
-            diskStorageAccountType:     '${{inputs.diskStorageAccountType}}'
-      windows_vm_maintain:
-        if: (github.event.inputs.requestType == 'Update (Data Disk)' || github.event.inputs.requestType == 'Update (OS Disk)')
-        name: 'Maintain Windows VM ${{inputs.purpose}}'
-        uses: ./.github/workflows/WindowsVMMaintain.yml
-        needs: parse_subnet_info
-        secrets:
-          ARM_CLIENT_ID:           ${{secrets.AZURE_CLIENT_ID}}
-          ARM_CLIENT_SECRET:       ${{secrets.AZURE_CLIENT_SECRET}}
-          ARM_SUBSCRIPTION_ID:     ${{secrets.AZURE_SUBSCRIPTION_ID}}
-          ARM_TENANT_ID:           ${{secrets.AZURE_TENANT_ID}}
-        with:
-          requestType:                '${{inputs.requestType}}'
-          environment:                '${{inputs.environment}}' 
-          location:                   '${{inputs.location}}'
-          vmsize:                     '${{inputs.vmsize}}'
-          purpose:                    '${{inputs.purpose}}'
-          purposeRG:                  '${{inputs.purposeRG}}'
-          # projectou:                  '${{inputs.projectou}}'
-          # subnetNameWVM:              '${{inputs.subnetNameWVM}}'
-          diskSizeGB:                 '${{inputs.diskSizeGB}}'
-          diskStorageAccountType:     '${{inputs.diskStorageAccountType}}'
-      windows_vm_remove:
-        if: (github.event.inputs.requestType == 'Remove (Destroy VM)')
-        name: 'Windows VM ${{ inputs.purpose }}'
-        uses: ./.github/workflows/WindowsVMCreate.yml
-        needs: parse_subnet_info
-        secrets:
-          ARM_CLIENT_ID:             ${{ secrets.AZURE_CLIENT_ID }}
-          ARM_CLIENT_SECRET:         ${{ secrets.AZURE_CLIENT_SECRET }}
-          ARM_SUBSCRIPTION_ID:       ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-          ARM_TENANT_ID:             ${{ secrets.AZURE_TENANT_ID }}
-          BACKEND_STORAGE_ACCOUNT:   ${{secrets.BACKEND_STORAGE_ACCOUNT}}
-          BACKEND_RESOURCE_GROUP:    ${{secrets.BACKEND_RESOURCE_GROUP}}
-        with:
-          requestType:                '${{ inputs.requestType }}'
-          environment:                '${{ inputs.environment }}'
-          location:                   '${{ inputs.location }}'
-          vmsize:                     '${{ inputs.vmsize }}'
-          purpose:                    '${{ inputs.purpose }}'
-          purposeRG:                  '${{ inputs.purposeRG }}'
-          projectou:                  '${{ inputs.projectou }}'
-          subnetNameWVM:              '${{ needs.parse_subnet_info.outputs.subnetNameWVM }}'
-          subnetNameWVM2:             '${{ needs.parse_subnet_info.outputs.subnetNameWVM2 }}'
-          diskSizeGB:                 '${{ inputs.diskSizeGB }}'
-          diskStorageAccountType:     '${{ inputs.diskStorageAccountType }}'
+          tf_actions_version: latest
+          tf_actions_subcommand: 'destroy'
+          tf_actions_working_dir: ${{ env.ROOT_PATH }}
+          tf_actions_comment: true
+        env:
+          TF_VAR_name: '${{ inputs.name }}'
+          TF_VAR_location: '${{ inputs.location }}'
+          TF_VAR_environment: '${{ inputs.environment }}'
+          TF_VAR_purpose: '${{ inputs.purpose }}'
+          TF_VAR_subnetname: '${{ inputs.subnetname }}'
+          TF_VAR_dbcollation: '${{ inputs.dbcollation }}'
+          TF_VAR_skuname: '${{ inputs.skuname }}'
+          TF_VAR_zoneredundancy: '${{ inputs.zoneredundancy }}'
